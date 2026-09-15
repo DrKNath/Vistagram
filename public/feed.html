@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <title>Fil d'actualité — Vistagram</title>
+</head>
+<body>
+    <!-- Page temporaire : le design sera fait par un autre membre de l'équipe -->
+    <h1>Fil d'actualité</h1>
+    <p><a href="/dashboard.html">← Retour au tableau de bord</a></p>
+
+    <h2>Créer un post</h2>
+    <form id="post-form">
+        <div>
+            <label for="content">Contenu</label><br />
+            <textarea id="content" name="content" rows="3" cols="40" required></textarea>
+        </div>
+        <div>
+            <label for="mediaFile">Photo ou vidéo (optionnel)</label><br />
+            <input type="file" id="mediaFile" name="mediaFile" accept="image/*,video/*" />
+        </div>
+        <div>
+            <label for="filter">Filtre (images uniquement)</label><br />
+            <select id="filter" name="filter">
+                <option value="">Aucun</option>
+                <option value="grayscale">Noir et blanc</option>
+                <option value="sepia">Sépia</option>
+            </select>
+        </div>
+        <div>
+            <label for="visibility">Visibilité</label><br />
+            <select id="visibility" name="visibility">
+                <option value="public">Public</option>
+                <option value="friends">Amis uniquement</option>
+            </select>
+        </div>
+        <button type="submit" id="submit-btn">Publier</button>
+    </form>
+
+    <p id="form-message" style="color: red;"></p>
+
+    <h2>Posts</h2>
+    <div id="posts">Chargement...</div>
+
+    <script>
+        const form = document.getElementById('post-form');
+        const formMessage = document.getElementById('form-message');
+        const submitBtn = document.getElementById('submit-btn');
+        const postsEl = document.getElementById('posts');
+
+        const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.mkv'];
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function isVideoUrl(url) {
+            return VIDEO_EXTENSIONS.some((ext) => url.toLowerCase().endsWith(ext));
+        }
+
+        function renderPost(post) {
+            const date = new Date(post.createdAt).toLocaleString('fr-FR');
+            const badge = post.visibility === 'FRIENDS' ? '👥 Amis' : '🌍 Public';
+
+            let html = '<div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">';
+            html += '<strong>' + escapeHtml(post.author.username) + '</strong>';
+            html += ' <span>(' + badge + ')</span>';
+            html += ' — <small>' + date + '</small>';
+            html += '<p>' + escapeHtml(post.content) + '</p>';
+
+            if (post.mediaUrl) {
+                if (isVideoUrl(post.mediaUrl)) {
+                    html +=
+                        '<video src="' + post.mediaUrl + '" controls style="max-width: 300px; display:block;"></video>';
+                } else {
+                    html += '<img src="' + post.mediaUrl + '" alt="media" style="max-width: 300px; display:block;" />';
+                }
+            }
+
+            html += '<button data-id="' + post.id + '" class="delete-btn">Supprimer</button>';
+            html += '</div>';
+
+            return html;
+        }
+
+        async function loadFeed() {
+            try {
+                const response = await fetch('/api/posts', { credentials: 'include' });
+
+                if (response.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    postsEl.textContent = (data.errors || ['Erreur inconnue.']).join(' ');
+                    return;
+                }
+
+                if (data.posts.length === 0) {
+                    postsEl.textContent = 'Aucun post à afficher pour le moment.';
+                    return;
+                }
+
+                postsEl.innerHTML = data.posts.map(renderPost).join('');
+
+                document.querySelectorAll('.delete-btn').forEach((btn) => {
+                    btn.addEventListener('click', async () => {
+                        await fetch('/api/posts/' + btn.dataset.id, {
+                            method: 'DELETE',
+                            credentials: 'include',
+                        });
+                        loadFeed();
+                    });
+                });
+            } catch (err) {
+                postsEl.textContent = 'Impossible de contacter le serveur.';
+            }
+        }
+
+        // Envoie le fichier au module media (Sharp fait la retouche pour les images ;
+        // les vidéos sont enregistrées telles quelles) et renvoie l'URL générée.
+        async function uploadMediaFile(file, filter) {
+            const formData = new FormData();
+            formData.append('file', file);
+            if (filter) {
+                formData.append('filter', filter);
+            }
+
+            const response = await fetch('/api/media/uploads', {
+                method: 'POST',
+                credentials: 'include',
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error((data.errors || ["Échec de l'upload du média."]).join(' '));
+            }
+
+            return data.mediaUrl;
+        }
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            formMessage.textContent = '';
+            submitBtn.disabled = true;
+
+            try {
+                const fileInput = document.getElementById('mediaFile');
+                const file = fileInput.files[0];
+                let mediaUrl;
+
+                if (file) {
+                    formMessage.textContent = 'Envoi du média en cours...';
+                    mediaUrl = await uploadMediaFile(file, document.getElementById('filter').value);
+                }
+
+                const payload = {
+                    content: document.getElementById('content').value,
+                    mediaUrl,
+                    visibility: document.getElementById('visibility').value,
+                };
+
+                const response = await fetch('/api/posts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    formMessage.textContent = (data.errors || ['Erreur inconnue.']).join(' ');
+                    return;
+                }
+
+                formMessage.textContent = '';
+                form.reset();
+                loadFeed();
+            } catch (err) {
+                formMessage.textContent = err.message || 'Impossible de contacter le serveur.';
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        loadFeed();
+    </script>
+</body>
+</html>
