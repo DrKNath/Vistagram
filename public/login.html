@@ -1,61 +1,48 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
-    <meta charset="UTF-8" />
-    <title>Connexion — Vistagram</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Connecte-toi ou rejoins Vistagram, le réseau des moments qui comptent.">
+  <title>Connexion — Vistagram</title>
+  <link rel="icon" href="assets/images/logo.svg" type="image/svg+xml">
+  <script src="assets/js/theme.js"></script>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="assets/js/common.js" defer></script>
+  <script src="assets/js/auth.js" defer></script>
 </head>
-<body>
-    <!-- Page temporaire : le design sera fait par un autre membre de l'équipe -->
-    <h1>Connexion</h1>
-
-    <form id="login-form">
-        <div>
-            <label for="email">Email</label><br />
-            <input type="email" id="email" name="email" required />
-        </div>
-        <div>
-            <label for="password">Mot de passe</label><br />
-            <input type="password" id="password" name="password" required />
-        </div>
-        <button type="submit">Se connecter</button>
+<body class="auth-page ">
+<a class="skip-link" href="#main">Aller au formulaire</a>
+<div class="site-shell">
+<header class="site-header"><a class="brand" href="index.html" aria-label="Vistagram, accueil"><img src="assets/images/logo.svg" alt="" width="38" height="38"><span><span class="brand-word">Vistagram</span><span class="brand-subtitle">Des moments qui comptent.</span></span></a><div class="header-actions"><button class="icon-button" type="button" data-theme-toggle aria-label="Activer le mode clair"></button><span class="muted small header-login">Pas encore de compte ?</span><a class="button button-secondary button-small" href="register.html">Rejoins-nous <span data-icon="arrow" aria-hidden="true"></span></a></div></header>
+<main class="auth-layout" id="main">
+  <aside class="auth-story" aria-label="L’esprit Vistagram">
+    <img src="assets/images/alpine-sunset.png" alt="Un lac entre les montagnes sous un ciel rose et violet au coucher du soleil" width="1536" height="1024">
+    <div class="story-badge"><span data-icon="image" aria-hidden="true"></span> Un instant. Une connexion.</div>
+    <div class="story-content">
+      <div class="story-kicker">PARTAGE. CONNECTE. VIS PLUS.</div>
+      <h2>Les moments<br>passent.<br>Les liens restent.</h2>
+      <p>Un paysage, un sourire, un instant partagé.<br>Garde le meilleur, rapproche-toi des tiens.</p>
+      <div class="story-bottom"><strong>Simple. Moderne. Différent.</strong><div class="story-dots" aria-hidden="true"><span></span><span></span><span></span></div></div>
+    </div>
+  </aside>
+  <section class="auth-panel" aria-labelledby="auth-heading">
+    <div class="welcome-icon"><img src="assets/images/logo.svg" alt="" width="29" height="29"></div>
+    <div class="eyebrow"><span class="dot"></span> TON UNIVERS T’ATTEND</div>
+    <h1 id="auth-heading">Heureux de te revoir.</h1>
+    <p class="auth-description">Tes moments, tes connexions, ton univers.<br>Connecte-toi pour les retrouver.</p>
+    <form class="auth-form" id="login-form" data-auth-form="login" method="post" action="/api/auth/login">
+      <div class="field"><label for="email">Adresse e-mail</label><div class="input-wrap"><span data-icon="mail" aria-hidden="true"></span><input id="email" name="email" type="email" placeholder="toi@exemple.fr" autocomplete="email" autocapitalize="none" spellcheck="false" required></div></div><div class="field"><label for="password">Mot de passe</label><div class="input-wrap"><span data-icon="lock" aria-hidden="true"></span><input id="password" name="password" type="password" placeholder="Ton mot de passe" autocomplete="current-password" data-password required><button class="password-toggle" type="button" data-password-toggle="password" aria-label="Afficher le mot de passe" aria-pressed="false" aria-controls="password"><span data-icon="eye" aria-hidden="true"></span></button></div></div>
+      <p id="message" class="form-message" role="status" aria-live="polite" tabindex="-1" hidden></p>
+      <button class="button button-primary button-full" type="submit">Se connecter <span data-icon="arrow" aria-hidden="true"></span></button>
     </form>
-
-    <p id="message" style="color: red;"></p>
-    <p><a href="/register.html">Créer un compte</a></p>
-
-    <script>
-        const form = document.getElementById('login-form');
-        const messageEl = document.getElementById('message');
-
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            messageEl.textContent = '';
-
-            const payload = {
-                email: document.getElementById('email').value,
-                password: document.getElementById('password').value,
-            };
-
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify(payload),
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    messageEl.textContent = (data.errors || ['Erreur inconnue.']).join(' ');
-                    return;
-                }
-
-                window.location.href = '/dashboard.html';
-            } catch (err) {
-                messageEl.textContent = "Impossible de contacter le serveur.";
-            }
-        });
-    </script>
+    <p class="auth-switch">Nouveau sur Vistagram ? <a class="text-link" href="register.html">Crée ton compte</a></p>
+    <p class="auth-trust"><span data-icon="lock" aria-hidden="true"></span> Ton mot de passe reste confidentiel.</p>
+    <p class="preview-note" id="local-preview" hidden>Aperçu de l’interface. La connexion et l’inscription sont disponibles lorsque le projet est lancé.</p>
+    <noscript><p class="form-message">Active JavaScript pour te connecter ou créer un compte.</p></noscript>
+  </section>
+</main>
+<footer class="site-footer"><span class="footer-motto"><img src="assets/images/logo.svg" alt="" width="20" height="20">Des moments qui comptent.</span><span>Vistagram · Projet SAÉ 5.02 · 2026</span><span>Ton regard. Ton univers.</span></footer>
+</div>
 </body>
 </html>

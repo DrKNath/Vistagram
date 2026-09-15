@@ -1,17 +1,49 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
-    <meta charset="UTF-8" />
-    <title>Vistagram</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Ton regard, tes connexions, ton univers. Découvre Vistagram et crée ton compte.">
+  <title>Des moments qui comptent — Vistagram</title>
+  <link rel="icon" href="assets/images/logo.svg" type="image/svg+xml">
+  <script src="assets/js/theme.js"></script>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="assets/js/common.js" defer></script>
 </head>
-<body>
-    <!-- Page temporaire : le design sera fait par un autre membre de l'équipe -->
-    <h1>Vistagram</h1>
-    <p>Système d'authentification (version fonctionnelle, sans design).</p>
-    <p>
-        <a href="/login.html">Se connecter</a>
-        &nbsp;|&nbsp;
-        <a href="/register.html">Créer un compte</a>
-    </p>
+<body class="landing-page">
+<a class="skip-link" href="#main">Aller au contenu</a>
+<div class="site-shell">
+<header class="site-header"><a class="brand" href="index.html" aria-label="Vistagram, accueil"><img src="assets/images/logo.svg" alt="" width="38" height="38"><span><span class="brand-word">Vistagram</span><span class="brand-subtitle">Des moments qui comptent.</span></span></a><nav class="header-links" aria-label="Navigation principale"><a href="index.html" aria-current="page">Accueil</a><a href="#notre-esprit">L’esprit Vistagram</a></nav><div class="header-actions"><button class="icon-button" type="button" data-theme-toggle aria-label="Activer le mode clair"></button><a class="header-login small" href="login.html">Se connecter</a><a class="button button-primary button-small" href="register.html">Créer un compte <span data-icon="arrow" aria-hidden="true"></span></a></div></header>
+<main id="main">
+  <section class="landing-hero" aria-labelledby="hero-heading">
+    <div class="hero-copy">
+      <div class="eyebrow"><span class="dot"></span> PLUS DE VIE. PLUS DE LIENS.</div>
+      <h1 id="hero-heading">Ton regard.<br>Ton monde.<br><span class="gradient-text">Ton Vistagram.</span></h1>
+      <p>Les plus beaux moments méritent d’être partagés. Un espace à ton image, pour raconter le quotidien et te rapprocher des tiens.</p>
+      <div class="hero-actions"><a class="button button-primary" href="register.html">Créer mon compte <span data-icon="arrow" aria-hidden="true"></span></a><a class="button button-secondary" href="login.html">Se connecter</a></div>
+      <div class="hero-signature"><div class="mini-avatars" aria-hidden="true"><span>M</span><span>L</span><span>A</span></div><span>De petits instants. De vraies connexions.</span></div>
+    </div>
+    <div class="hero-visual" aria-label="Illustration de l’univers visuel de Vistagram">
+      <div class="visual-tag tag-top"><span class="tag-icon"><span data-icon="heart" aria-hidden="true"></span></span><div><strong>Un moment qui compte.</strong><small>Et si tu partageais le tien ?</small></div></div>
+      <div class="moment-card">
+        <div class="moment-header"><div class="moment-account"><span class="avatar">V</span><div><strong>vistagram</strong><span class="muted">Quelque part, au grand air</span></div></div><span class="pill">Aperçu</span></div>
+        <div class="moment-photo"><img src="assets/images/alpine-sunset.png" alt="Un lac alpin aux reflets violets, au coucher du soleil" width="1536" height="1024"><div class="photo-caption">Prendre le temps.<small>LES PETITES CHOSES, EN GRAND.</small></div></div>
+        <div class="moment-actions" aria-hidden="true"><span data-icon="heart" aria-hidden="true"></span><span data-icon="chat" aria-hidden="true"></span><span data-icon="arrow" aria-hidden="true"></span><span data-icon="bookmark" aria-hidden="true"></span></div>
+      </div>
+      <div class="visual-tag tag-bottom"><span class="tag-icon"><span data-icon="compass" aria-hidden="true"></span></span><div><strong>Le quotidien, autrement.</strong><small>Ton inspiration commence ici.</small></div></div>
+      <p class="preview-caption">Un aperçu de notre univers visuel</p>
+    </div>
+  </section>
+  <section class="values-section" id="notre-esprit" aria-labelledby="values-heading">
+    <div class="section-heading"><h2 id="values-heading">Un peu de toi. Beaucoup de liens.</h2><p>L’esprit Vistagram, en trois mots.</p></div>
+    <div class="value-grid">
+      <article class="value-card"><span class="tag-icon"><span data-icon="image" aria-hidden="true"></span></span><div><h3>Partage.</h3><p>Les petits détails et les grandes aventures. Tout ce qui rend ton regard unique.</p></div></article>
+      <article class="value-card"><span class="tag-icon"><span data-icon="chat" aria-hidden="true"></span></span><div><h3>Connecte.</h3><p>Parce que derrière chaque moment, il y a quelqu’un avec qui le vivre.</p></div></article>
+      <article class="value-card"><span class="tag-icon"><span data-icon="compass" aria-hidden="true"></span></span><div><h3>Vis plus.</h3><p>De nouvelles idées, d’autres perspectives et l’envie de sortir du cadre.</p></div></article>
+    </div>
+  </section>
+</main>
+<footer class="site-footer"><span class="footer-motto"><img src="assets/images/logo.svg" alt="" width="20" height="20">Des moments qui comptent.</span><span>Vistagram · Projet SAÉ 5.02 · 2026</span><span>Ton regard. Ton univers.</span></footer>
+</div>
 </body>
 </html>
