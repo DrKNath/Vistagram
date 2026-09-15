@@ -1,10 +1,3 @@
-/**
- * Routeur du module amis (E2).
- *
- * Toutes les routes exigent une authentification : aucune information de
- * relation n'est publique.
- */
-
 import { Router } from 'express';
 import { requireAuth } from '../../middlewares/auth.middleware.js';
 import {

@@ -1,18 +1,3 @@
-/**
- * Règles métier du système d'amitié (E2).
- *
- * Module volontairement pur : aucune dépendance à Prisma ni à Express. Chaque
- * fonction reçoit l'état lu en base et décide ; `friends.ts` se charge ensuite
- * d'écrire. Cela rend les règles testables sans base de données, et lisibles
- * sans ouvrir la couche d'accès aux données.
- *
- * ## Limitation connue du modèle
- * `Friendship` ne stocke qu'une ligne par couple, avec un seul `status`. Le
- * blocage mutuel (A bloque B *et* B bloque A) n'est donc pas représentable :
- * le second blocage est refusé. Corriger cela demande un modèle `Block`
- * distinct — à arbitrer en équipe, via une PR de migration dédiée.
- */
-
 import type { RelationStatusResponse, RelationView, FriendshipStatus, PublicFriendshipStatus } from './friends.types.js';
 
 /**

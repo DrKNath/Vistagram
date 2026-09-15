@@ -1,11 +1,3 @@
-/**
- * Validation des entrées du module amis (E2).
- *
- * Les types TypeScript disparaissent à la compilation : sans ces contrôles,
- * un corps de requête arbitraire atteindrait Prisma tel quel. Chaque fonction
- * renvoie la liste des messages d'erreur, vide si tout est correct.
- */
-
 type UnknownRecord = Record<string, unknown>;
 
 /**

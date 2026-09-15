@@ -1,11 +1,3 @@
-/**
- * Contrôleurs HTTP du module amis (E2).
- *
- * Chaque handler se limite à trois choses : valider les entrées, appeler le
- * service, formater la réponse. Aucune règle métier ici. L'enveloppe suit la
- * convention du projet : `{ status: 'OK', ... }` ou `{ status: 'ERROR', errors }`.
- */
-
 import type { Request, Response } from 'express';
 import {
     FriendsError,

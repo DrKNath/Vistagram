@@ -1,15 +1,3 @@
-/**
- * Service du système d'amitié (E2).
- *
- * Le service lit l'état en base, délègue la décision aux règles pures de
- * `friends.rules.ts`, puis écrit le résultat. Aucune règle métier n'est écrite
- * ici : si une condition apparaît dans ce fichier, elle a sa place dans les
- * règles, où elle sera testable sans base de données.
- *
- * Le modèle `Friendship` étant directionnel, toute lecture interroge les deux
- * sens via un `OR`.
- */
-
 import { prisma } from '../../config/db.js';
 import {
     FriendsError,

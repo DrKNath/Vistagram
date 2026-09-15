@@ -1,18 +1,3 @@
-/**
- * Types du module amis (E2).
- *
- * Le modèle Prisma `Friendship` est directionnel : une ligne porte `userId`
- * (l'initiateur) et `friendId` (le destinataire). Une relation entre deux
- * comptes peut donc être stockée dans un sens ou dans l'autre, et toute
- * lecture doit interroger les deux directions.
- */
-
-/**
- * Statut stocké en base, en majuscules.
- *
- * Le champ Prisma est un `String` libre : ajouter `BLOCKED` n'a demandé
- * aucune migration.
- */
 export type FriendshipStatus = 'PENDING' | 'ACCEPTED' | 'BLOCKED';
 
 /** Statut exposé au front, en minuscules. */
