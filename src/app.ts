@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { usersRouter } from './modules/users/users.routes.js';
 import { mediaRouter } from './modules/media/media.routes.js';
+import { postsRouter } from './modules/posts/posts.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,3 +28,4 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/media', mediaRouter);
+app.use('/api/posts', postsRouter);
