@@ -1,7 +1,7 @@
 import type { Server, Socket } from 'socket.io';
 import { verifyToken } from '../auth/auth.js';
 import { prisma } from '../../config/db.js';
-import { sendMessage } from './chat.js';
+import { markRead, sendMessage } from './chat.js';
 
 /** Lit le cookie `token` depuis l'en-tête brut d'une connexion Socket.io. */
 function extractToken(socket: Socket): string | null {
@@ -35,8 +35,8 @@ async function isMember(conversationId: number, userId: number): Promise<boolean
  *
  * L'authentification se fait via le même cookie `token` que l'API REST
  * (posé par le module auth au login). La persistance et la diffusion des
- * messages passent toujours par `sendMessage` (chat.ts) : ce fichier ne fait
- * que relayer les évènements, il ne duplique aucune règle métier.
+ * messages et des lectures passent toujours par `chat.ts` : ce fichier ne
+ * fait que relayer les évènements, il ne duplique aucune règle métier.
  *
  * @param io Serveur Socket.io, créé dans `server.ts`.
  */
@@ -83,22 +83,45 @@ export function registerChatSocket(io: Server): void {
         socket.on(
             'send_message',
             async (
-                payload: { conversationId?: unknown; content?: unknown },
+                payload: { conversationId?: unknown; content?: unknown; mediaUrl?: unknown },
                 ack?: (res: { status: 'OK' | 'ERROR'; message?: unknown; error?: string }) => void,
             ) => {
                 const conversationId = Number(payload?.conversationId);
-                const content = typeof payload?.content === 'string' ? payload.content.trim() : '';
+                const content = typeof payload?.content === 'string' ? payload.content : undefined;
+                const mediaUrl = typeof payload?.mediaUrl === 'string' ? payload.mediaUrl : undefined;
+                const hasContent = typeof content === 'string' && content.trim().length > 0;
+                const hasMedia = typeof mediaUrl === 'string' && mediaUrl.trim().length > 0;
 
-                if (!Number.isInteger(conversationId) || conversationId <= 0 || content.length === 0) {
+                if (!Number.isInteger(conversationId) || conversationId <= 0 || (!hasContent && !hasMedia)) {
                     ack?.({ status: 'ERROR', error: 'Message invalide.' });
                     return;
                 }
 
                 try {
-                    const message = await sendMessage(userId, conversationId, content);
+                    const message = await sendMessage(userId, conversationId, content, mediaUrl);
                     ack?.({ status: 'OK', message });
                 } catch (err) {
                     ack?.({ status: 'ERROR', error: err instanceof Error ? err.message : 'Erreur serveur.' });
+                }
+            },
+        );
+
+        socket.on(
+            'mark_read',
+            async (payload: { conversationId?: unknown; messageId?: unknown }, ack?: (ok: boolean) => void) => {
+                const conversationId = Number(payload?.conversationId);
+                const messageId = payload?.messageId !== undefined ? Number(payload.messageId) : undefined;
+
+                if (!Number.isInteger(conversationId) || conversationId <= 0) {
+                    ack?.(false);
+                    return;
+                }
+
+                try {
+                    await markRead(userId, conversationId, messageId);
+                    ack?.(true);
+                } catch {
+                    ack?.(false);
                 }
             },
         );
