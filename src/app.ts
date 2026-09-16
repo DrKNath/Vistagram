@@ -10,6 +10,7 @@ import { usersRouter } from './modules/users/users.routes.js';
 import { mediaRouter } from './modules/media/media.routes.js';
 import { postsRouter } from './modules/posts/posts.routes.js';
 import { friendsRouter } from './modules/friends/friends.routes.js';
+import { chatRouter } from './modules/chat/chat.routes.js';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -34,4 +35,5 @@ app.use('/api/users', usersRouter);
 app.use('/api/media', mediaRouter);
 app.use('/api/posts', postsRouter);
 app.use('/api/friends', friendsRouter);
+app.use('/api/chat', chatRouter);
 

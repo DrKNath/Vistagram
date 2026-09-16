@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <title>Messagerie — Vistagram</title>
+</head>
+<body>
+    <!-- Page temporaire : le design sera fait par un autre membre de l'équipe -->
+    <h1>Messagerie</h1>
+    <p><a href="/dashboard.html">← Retour au tableau de bord</a></p>
+
+    <div style="display: flex; gap: 30px;">
+        <div style="min-width: 240px;">
+            <h2>Conversations</h2>
+            <div id="conversations">Chargement...</div>
+
+            <h2>Démarrer avec un ami</h2>
+            <div id="friends">Chargement...</div>
+
+            <h2>Créer un groupe</h2>
+            <form id="group-form">
+                <div>
+                    <label for="group-title">Nom du groupe</label><br />
+                    <input type="text" id="group-title" required maxlength="80" />
+                </div>
+                <div id="group-members">Chargement des amis...</div>
+                <button type="submit">Créer le groupe</button>
+            </form>
+            <p id="group-message" style="color: red;"></p>
+        </div>
+
+        <div style="flex: 1;">
+            <h2 id="thread-title">Sélectionnez une conversation</h2>
+            <div id="thread-members" style="color: #555;"></div>
+            <div id="messages" style="border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto;"></div>
+            <div id="read-status" style="color: #555; font-size: 0.9em;"></div>
+
+            <form id="message-form" style="margin-top: 10px; display: none;">
+                <input type="text" id="message-input" placeholder="Votre message" style="width: 55%;" maxlength="2000" />
+                <input type="file" id="message-file" accept="image/*,video/*" style="width: 20%;" />
+                <button type="submit">Envoyer</button>
+            </form>
+            <p id="form-message" style="color: red;"></p>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const conversationsEl = document.getElementById('conversations');
+        const friendsEl = document.getElementById('friends');
+        const groupForm = document.getElementById('group-form');
+        const groupMembersEl = document.getElementById('group-members');
+        const groupMessageEl = document.getElementById('group-message');
+        const threadTitleEl = document.getElementById('thread-title');
+        const threadMembersEl = document.getElementById('thread-members');
+        const messagesEl = document.getElementById('messages');
+        const readStatusEl = document.getElementById('read-status');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const messageFile = document.getElementById('message-file');
+        const formMessage = document.getElementById('form-message');
+
+        let currentUserId = null;
+        let currentConversationId = null;
+        let currentConversationIsGroup = false;
+        let socket = null;
+        const renderedMessageIds = new Set();
+
+        const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.mkv'];
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function isVideoUrl(url) {
+            return VIDEO_EXTENSIONS.some((ext) => url.toLowerCase().endsWith(ext));
+        }
+
+        function renderMessage(message) {
+            if (renderedMessageIds.has(message.id)) {
+                return;
+            }
+            renderedMessageIds.add(message.id);
+
+            const time = new Date(message.createdAt).toLocaleString('fr-FR');
+            const wrapper = document.createElement('div');
+            wrapper.style.marginBottom = '8px';
+
+            let html = '<strong>' + escapeHtml(message.sender.username) + '</strong> ' +
+                '<small>(' + time + ')</small>';
+
+            if (message.content) {
+                html += '<p style="margin: 2px 0;">' + escapeHtml(message.content) + '</p>';
+            }
+
+            if (message.mediaUrl) {
+                if (isVideoUrl(message.mediaUrl)) {
+                    html += '<video src="/' + message.mediaUrl + '" controls style="max-width: 250px; display:block;"></video>';
+                } else {
+                    html += '<img src="/' + message.mediaUrl + '" alt="média" style="max-width: 250px; display:block;" />';
+                }
+            }
+
+            wrapper.innerHTML = html;
+            messagesEl.appendChild(wrapper);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        async function loadConversations() {
+            const response = await fetch('/api/chat/conversations', { credentials: 'include' });
+
+            if (response.status === 401) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            const data = await response.json();
+
+            if (!data.conversations || data.conversations.length === 0) {
+                conversationsEl.textContent = 'Aucune conversation pour le moment.';
+                return;
+            }
+
+            conversationsEl.innerHTML = '';
+            data.conversations.forEach((conversation) => {
+                const other = conversation.participants[0];
+                const label = conversation.isGroup
+                    ? (conversation.title || 'Groupe') + ' (' + (conversation.participants.length + 1) + ' membres)'
+                    : (other ? other.username : 'Conversation');
+                const preview = conversation.lastMessage
+                    ? escapeHtml(conversation.lastMessage.content || '📎 média')
+                    : '(aucun message)';
+                const unread = conversation.unreadCount > 0 ? ' 🔴 ' + conversation.unreadCount : '';
+
+                const btn = document.createElement('button');
+                btn.style.display = 'block';
+                btn.style.marginBottom = '5px';
+                btn.innerHTML = '<strong>' + escapeHtml(label) + '</strong>' + unread + '<br><small>' + preview + '</small>';
+                btn.addEventListener('click', () => openConversation(conversation.id));
+                conversationsEl.appendChild(btn);
+            });
+        }
+
+        async function loadFriends() {
+            const response = await fetch('/api/friends', { credentials: 'include' });
+            const data = await response.json();
+            const friends = data.friends || [];
+
+            if (friends.length === 0) {
+                friendsEl.textContent = "Vous n'avez pas encore d'amis. Ajoutez-en depuis la page dédiée.";
+                groupMembersEl.textContent = 'Ajoutez des amis pour pouvoir créer un groupe.';
+                return;
+            }
+
+            friendsEl.innerHTML = '';
+            friends.forEach((friend) => {
+                const btn = document.createElement('button');
+                btn.textContent = 'Discuter avec ' + friend.username;
+                btn.style.display = 'block';
+                btn.style.marginBottom = '5px';
+                btn.addEventListener('click', async () => {
+                    const res = await fetch('/api/chat/conversations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ targetUserId: friend.id }),
+                    });
+                    const body = await res.json();
+
+                    if (!res.ok) {
+                        formMessage.textContent = (body.errors || ['Impossible de démarrer la conversation.']).join(' ');
+                        return;
+                    }
+
+                    await loadConversations();
+                    openConversation(body.conversation.id);
+                });
+                friendsEl.appendChild(btn);
+            });
+
+            groupMembersEl.innerHTML = '<p>Membres à inviter (au moins deux) :</p>' + friends.map((friend) =>
+                '<label style="display:block;"><input type="checkbox" name="member" value="' + friend.id + '" /> ' +
+                escapeHtml(friend.username) + '</label>'
+            ).join('');
+        }
+
+        groupForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            groupMessageEl.textContent = '';
+
+            const title = document.getElementById('group-title').value;
+            const participantIds = Array.from(document.querySelectorAll('input[name="member"]:checked'))
+                .map((input) => Number(input.value));
+
+            const response = await fetch('/api/chat/conversations/group', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ title, participantIds }),
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                groupMessageEl.textContent = (data.errors || ['Impossible de créer le groupe.']).join(' ');
+                return;
+            }
+
+            groupForm.reset();
+            await loadConversations();
+            openConversation(data.conversation.id);
+        });
+
+        async function renderReadStatus(conversationId) {
+            const response = await fetch('/api/chat/conversations/' + conversationId + '/read-receipts', {
+                credentials: 'include',
+            });
+            if (!response.ok) {
+                return;
+            }
+            const data = await response.json();
+            const others = data.receipts.filter((r) => r.user.id !== currentUserId && r.lastReadMessageId);
+
+            if (others.length === 0) {
+                readStatusEl.textContent = '';
+                return;
+            }
+
+            readStatusEl.textContent = 'Lu par : ' + others.map((r) => r.user.username).join(', ');
+        }
+
+        async function openConversation(conversationId) {
+            currentConversationId = conversationId;
+            messagesEl.innerHTML = '';
+            renderedMessageIds.clear();
+            messageForm.style.display = 'block';
+            formMessage.textContent = '';
+            readStatusEl.textContent = '';
+
+            const detailResponse = await fetch('/api/chat/conversations/' + conversationId, { credentials: 'include' });
+            const detail = await detailResponse.json();
+
+            if (detailResponse.ok) {
+                currentConversationIsGroup = detail.conversation.isGroup;
+                if (detail.conversation.isGroup) {
+                    threadTitleEl.textContent = detail.conversation.title || 'Groupe';
+                    threadMembersEl.textContent = 'Membres : ' +
+                        detail.conversation.members.map((m) => m.user.username + (m.role === 'admin' ? ' (admin)' : '')).join(', ');
+                } else {
+                    const other = detail.conversation.members.find((m) => m.user.id !== currentUserId);
+                    threadTitleEl.textContent = other ? other.user.username : 'Conversation';
+                    threadMembersEl.textContent = '';
+                }
+            }
+
+            const response = await fetch('/api/chat/conversations/' + conversationId + '/messages', {
+                credentials: 'include',
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                messagesEl.textContent = (data.errors || ['Erreur inconnue.']).join(' ');
+                return;
+            }
+
+            data.messages.forEach(renderMessage);
+
+            // Marque la conversation comme lue dès qu'on l'ouvre.
+            await fetch('/api/chat/conversations/' + conversationId + '/read', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({}),
+            });
+            loadConversations();
+            renderReadStatus(conversationId);
+
+            if (socket) {
+                socket.emit('join_conversation', conversationId);
+            }
+        }
+
+        // Envoie le fichier au module media (réutilisé tel quel : Sharp fait la
+        // retouche pour les images, les vidéos sont enregistrées telles quelles)
+        // et renvoie l'URL générée, exactement comme pour un post du fil d'actualité.
+        async function uploadMediaFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch('/api/media/uploads', {
+                method: 'POST',
+                credentials: 'include',
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error((data.errors || ["Échec de l'upload du média."]).join(' '));
+            }
+
+            return data.mediaUrl;
+        }
+
+        messageForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!currentConversationId) {
+                return;
+            }
+
+            formMessage.textContent = '';
+            const content = messageInput.value;
+            const file = messageFile.files[0];
+
+            try {
+                let mediaUrl;
+                if (file) {
+                    formMessage.textContent = 'Envoi du média en cours...';
+                    mediaUrl = await uploadMediaFile(file);
+                }
+
+                if (!content && !mediaUrl) {
+                    formMessage.textContent = 'Écrivez un message ou joignez un fichier.';
+                    return;
+                }
+
+                const response = await fetch('/api/chat/conversations/' + currentConversationId + '/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ content: content || undefined, mediaUrl }),
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    formMessage.textContent = (data.errors || ['Erreur inconnue.']).join(' ');
+                    return;
+                }
+
+                formMessage.textContent = '';
+                renderMessage(data.message);
+                messageInput.value = '';
+                messageFile.value = '';
+                loadConversations();
+            } catch (err) {
+                formMessage.textContent = err.message || 'Impossible de contacter le serveur.';
+            }
+        });
+
+        // Connexion temps réel : le cookie de session est transmis automatiquement,
+        // l'authentification est vérifiée côté serveur (voir chat.socket.ts).
+        function connectSocket() {
+            socket = io({ withCredentials: true });
+
+            socket.on('new_message', (message) => {
+                if (message.conversationId === currentConversationId) {
+                    renderMessage(message);
+                }
+                loadConversations();
+            });
+
+            socket.on('conversation_read', (payload) => {
+                if (payload.conversationId === currentConversationId) {
+                    renderReadStatus(currentConversationId);
+                }
+            });
+        }
+
+        async function init() {
+            const meResponse = await fetch('/api/auth/me', { credentials: 'include' });
+            if (!meResponse.ok) {
+                window.location.href = '/login.html';
+                return;
+            }
+            const me = await meResponse.json();
+            currentUserId = me.user.id;
+
+            loadConversations();
+            loadFriends();
+            connectSocket();
+        }
+
+        init();
+    </script>
+</body>
+</html>
