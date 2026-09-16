@@ -11,6 +11,7 @@ import {
     respondToFriendRequest,
     sendFriendRequest,
     unblockUserHandler,
+    getFriendSuggestions
 } from './friends.controller.js';
 
 export const friendsRouter = Router();
@@ -28,5 +29,6 @@ friendsRouter.delete('/requests/:id', requireAuth, cancelFriendRequest);
 
 friendsRouter.post('/block/:userId', requireAuth, blockUserHandler);
 friendsRouter.delete('/block/:userId', requireAuth, unblockUserHandler);
+friendsRouter.get('/suggestions', requireAuth, getFriendSuggestions);
 
 friendsRouter.delete('/:userId', requireAuth, removeFriendHandler);

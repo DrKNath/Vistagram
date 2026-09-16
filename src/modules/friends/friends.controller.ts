@@ -13,11 +13,13 @@ import {
     sendRequest,
     toFriendshipResponse,
     unblockUser,
+    suggestFriends
 } from './friends.js';
 import {
     parseRouteId,
     validateFriendRequestInput,
     validateFriendResponseInput,
+    parseSuggestionsLimit
 } from './friends.validation.js';
 import type { FriendRequestInput, FriendResponseInput } from './friends.types.js';
 
@@ -113,6 +115,13 @@ export async function getFriendRequests(req: Request, res: Response) {
         listOutgoingRequests(userId),
     ]);
     return res.json({ status: 'OK', incoming, outgoing });
+}
+
+/** `GET /api/friends/suggestions` — suggestions d'amis (amis en commun). */
+export async function getFriendSuggestions(req: Request, res: Response) {
+    const limit = parseSuggestionsLimit(req.query.limit);
+    const suggestions = await suggestFriends(req.userId as number, limit);
+    return res.json({ status: 'OK', suggestions });
 }
 
 /** `GET /api/friends/blocked` — comptes bloqués. */

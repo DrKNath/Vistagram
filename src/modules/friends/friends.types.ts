@@ -49,6 +49,14 @@ export interface PendingRequest {
     createdAt: Date;
 }
 
+/** Suggestion d'ami, classée par nombre d'amis en commun. */
+export interface FriendSuggestion {
+    /** Profil public du compte suggéré. */
+    user: FriendSummary;
+    /** Nombre d'amis en commun avec le lecteur. */
+    mutualFriends: number;
+}
+
 /** État de la relation entre le lecteur courant et un autre compte. */
 export interface RelationStatusResponse {
     /** Statut, ou `none` si aucune relation n'existe. */

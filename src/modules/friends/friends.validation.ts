@@ -38,6 +38,32 @@ export function validateFriendResponseInput(data: UnknownRecord | undefined): st
     return errors;
 }
 
+/** Nombre de suggestions renvoyées par défaut. */
+const DEFAULT_SUGGESTIONS_LIMIT = 10;
+
+/** Nombre maximal de suggestions renvoyées, pour éviter un scan trop large. */
+const MAX_SUGGESTIONS_LIMIT = 50;
+
+/**
+ * Valide le paramètre `limit` d'une requête de suggestions.
+ *
+ * Une valeur absente ou invalide retombe silencieusement sur la valeur par
+ * défaut : `limit` est un simple réglage d'affichage, pas une donnée dont
+ * l'invalidité doit bloquer la requête.
+ *
+ * @param raw Valeur brute du paramètre de requête.
+ * @return L'entier validé, borné à {@link MAX_SUGGESTIONS_LIMIT}.
+ */
+export function parseSuggestionsLimit(raw: unknown): number {
+    if (typeof raw !== 'string') {
+        return DEFAULT_SUGGESTIONS_LIMIT;
+    }
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value <= 0) {
+        return DEFAULT_SUGGESTIONS_LIMIT;
+    }
+    return Math.min(value, MAX_SUGGESTIONS_LIMIT);
+}
 /**
  * Valide un identifiant reçu dans l'URL.
  *

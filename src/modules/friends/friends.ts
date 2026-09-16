@@ -11,6 +11,7 @@ import {
     toRelationStatus,
 } from './friends.rules.js';
 import type {
+    FriendSuggestion,
     FriendSummary,
     FriendshipResponse,
     PendingRequest,
@@ -343,6 +344,114 @@ export async function getRelationStatus(
  * @param b Second compte.
  * @return `true` si l'amitié est acceptée.
  */
+
+/**
+ * Récupère les identifiants des amis confirmés d'un compte.
+ *
+ * @param userId Compte concerné.
+ * @return Les identifiants des amis, sans doublon.
+ */
+async function listFriendIds(userId: number): Promise<number[]> {
+    const rows = await prisma.friendship.findMany({
+        where: { status: 'ACCEPTED', OR: [{ userId }, { friendId: userId }] },
+        select: { userId: true, friendId: true },
+    });
+    return rows.map(row => (row.userId === userId ? row.friendId : row.userId));
+}
+
+/**
+ * Récupère les identifiants à exclure des suggestions.
+ *
+ * Regroupe soi-même et tout compte déjà lié par une relation, quel que soit
+ * son statut (ami, demande en attente dans un sens ou l'autre, blocage) :
+ * ces comptes ne relèvent plus de la découverte, ils relèvent des écrans de
+ * demandes ou de blocage.
+ *
+ * @param userId Compte concerné.
+ * @return L'ensemble des identifiants à exclure, `userId` inclus.
+ */
+async function listExcludedIds(userId: number): Promise<Set<number>> {
+    const rows = await prisma.friendship.findMany({
+        where: { OR: [{ userId }, { friendId: userId }] },
+        select: { userId: true, friendId: true },
+    });
+
+    const excluded = new Set<number>([userId]);
+    for (const row of rows) {
+        excluded.add(row.userId === userId ? row.friendId : row.userId);
+    }
+    return excluded;
+}
+
+/**
+ * Suggère des comptes à ajouter, classés par nombre d'amis en commun.
+ *
+ * Explore les amis des amis (profondeur 2) : chaque ami direct qui partage
+ * lui-même une amitié confirmée avec un candidat compte comme un point pour
+ * ce candidat. Un candidat proposé par plusieurs amis communs voit donc son
+ * score augmenter d'autant, ce qui le fait remonter dans le classement.
+ *
+ * Les comptes déjà liés au lecteur — amis, demande en attente dans un sens ou
+ * l'autre, ou blocage — ainsi que le lecteur lui-même, sont exclus en amont :
+ * ils n'ont rien à faire dans une liste de découverte.
+ *
+ * @param userId Compte pour lequel générer des suggestions.
+ * @param limit Nombre maximal de suggestions à renvoyer (défaut 10).
+ * @return Les suggestions, du plus grand nombre d'amis communs au plus petit,
+ *         puis par ordre alphabétique de nom d'utilisateur à score égal.
+ */
+export async function suggestFriends(userId: number, limit = 10): Promise<FriendSuggestion[]> {
+    const [friendIds, excluded] = await Promise.all([
+        listFriendIds(userId),
+        listExcludedIds(userId),
+    ]);
+
+    // Sans ami direct, il n'y a pas d'« ami d'ami » à explorer.
+    if (friendIds.length === 0) {
+        return [];
+    }
+
+    const friendIdSet = new Set(friendIds);
+
+    // Toutes les amitiés confirmées touchant au moins un ami direct : l'autre
+    // membre de chacune de ces lignes est un candidat de profondeur 2.
+    const rows = await prisma.friendship.findMany({
+        where: {
+            status: 'ACCEPTED',
+            OR: [{ userId: { in: friendIds } }, { friendId: { in: friendIds } }],
+        },
+        select: { userId: true, friendId: true },
+    });
+
+    const scores = new Map<number, number>();
+    for (const row of rows) {
+        // Le membre de la ligne qui est un ami direct sert de « pont » ; le
+        // score s'accumule sur l'autre membre, le candidat potentiel.
+        const candidateId = friendIdSet.has(row.userId) ? row.friendId : row.userId;
+
+        if (excluded.has(candidateId)) {
+            continue;
+        }
+        scores.set(candidateId, (scores.get(candidateId) ?? 0) + 1);
+    }
+
+    if (scores.size === 0) {
+        return [];
+    }
+
+    const candidates = await prisma.user.findMany({
+        where: { id: { in: [...scores.keys()] } },
+        select: USER_SUMMARY_SELECT,
+    });
+
+    return candidates
+        .map(user => ({ user, mutualFriends: scores.get(user.id) ?? 0 }))
+        .sort(
+            (a, b) =>
+                b.mutualFriends - a.mutualFriends || a.user.username.localeCompare(b.user.username),
+        )
+        .slice(0, limit);
+}
 export async function areFriends(a: number, b: number): Promise<boolean> {
     const relation = await findRelation(a, b);
     return relation?.status === 'ACCEPTED';
