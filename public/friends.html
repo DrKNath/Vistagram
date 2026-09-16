@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Amis — Vistagram</title>
+  </head>
+  <body>
+    <!-- Page temporaire : le design sera fait par un autre membre de l'équipe -->
+    <h1>Amis</h1>
+    <p>
+      <a href="/dashboard.html">← Retour au tableau de bord</a> ·
+      <a href="/feed.html">Fil d'actualité</a>
+    </p>
+
+    <p id="me">Chargement...</p>
+
+    <p id="global-error" style="color: red"></p>
+
+    <h2>Ajouter un ami</h2>
+    <form id="search-form">
+      <label for="username-query">Pseudo</label><br />
+      <input
+        type="text"
+        id="username-query"
+        name="q"
+        minlength="2"
+        placeholder="ex : toto"
+        required
+      />
+      <button type="submit">Rechercher</button>
+    </form>
+    <p style="color: #666; font-size: 0.9em">
+      Pour tester le follow back, connecte-toi avec un deuxième compte dans une
+      fenêtre privée.
+    </p>
+    <div id="search-results"></div>
+    <p id="add-message"></p>
+
+    <h2>Demandes reçues</h2>
+    <div id="incoming">Chargement...</div>
+
+    <h2>Demandes envoyées</h2>
+    <div id="outgoing">Chargement...</div>
+
+    <h2>Mes amis</h2>
+    <div id="friends-list">Chargement...</div>
+
+    <script>
+      const meEl = document.getElementById("me");
+      const globalErrorEl = document.getElementById("global-error");
+      const searchForm = document.getElementById("search-form");
+      const searchResultsEl = document.getElementById("search-results");
+      const addMessageEl = document.getElementById("add-message");
+      const incomingEl = document.getElementById("incoming");
+      const outgoingEl = document.getElementById("outgoing");
+      const friendsListEl = document.getElementById("friends-list");
+
+      function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      async function api(path, options = {}) {
+        const response = await fetch(path, {
+          ...options,
+          credentials: "include",
+          headers: {
+            ...(options.body ? { "Content-Type": "application/json" } : {}),
+            ...options.headers,
+          },
+        });
+
+        if (response.status === 401) {
+          window.location.href = "/login.html";
+          throw new Error("Non authentifié.");
+        }
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error((data.errors || ["Erreur inconnue."]).join(" "));
+        }
+
+        return data;
+      }
+
+      function userLabel(user) {
+        return escapeHtml(user.username) + " (#" + user.id + ")";
+      }
+
+      function renderIncoming(requests) {
+        if (requests.length === 0) {
+          incomingEl.textContent = "Aucune demande reçue.";
+          return;
+        }
+
+        incomingEl.innerHTML = requests
+          .map(
+            (r) =>
+              '<div style="border: 1px solid #ccc; padding: 8px; margin-bottom: 6px;">' +
+              userLabel(r.user) +
+              ' <button data-id="' +
+              r.friendshipId +
+              '" class="accept-btn">✅ Accepter (follow back)</button>' +
+              ' <button data-id="' +
+              r.friendshipId +
+              '" class="reject-btn">❌ Refuser</button>' +
+              "</div>",
+          )
+          .join("");
+
+        incomingEl.querySelectorAll(".accept-btn").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            respondToRequest(btn.dataset.id, "accepted"),
+          );
+        });
+        incomingEl.querySelectorAll(".reject-btn").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            respondToRequest(btn.dataset.id, "rejected"),
+          );
+        });
+      }
+
+      function renderOutgoing(requests) {
+        if (requests.length === 0) {
+          outgoingEl.textContent = "Aucune demande envoyée.";
+          return;
+        }
+
+        outgoingEl.innerHTML = requests
+          .map(
+            (r) =>
+              '<div style="border: 1px solid #ccc; padding: 8px; margin-bottom: 6px;">' +
+              userLabel(r.user) +
+              " <em>(en attente)</em>" +
+              ' <button data-id="' +
+              r.friendshipId +
+              '" class="cancel-btn">Annuler</button>' +
+              "</div>",
+          )
+          .join("");
+
+        outgoingEl.querySelectorAll(".cancel-btn").forEach((btn) => {
+          btn.addEventListener("click", () => cancelRequest(btn.dataset.id));
+        });
+      }
+
+      function renderFriends(friends) {
+        if (friends.length === 0) {
+          friendsListEl.textContent = "Aucun ami pour le moment.";
+          return;
+        }
+
+        friendsListEl.innerHTML = friends
+          .map(
+            (f) =>
+              '<div style="border: 1px solid #ccc; padding: 8px; margin-bottom: 6px;">' +
+              userLabel(f) +
+              ' <button data-id="' +
+              f.id +
+              '" class="remove-btn">Retirer</button>' +
+              "</div>",
+          )
+          .join("");
+
+        friendsListEl.querySelectorAll(".remove-btn").forEach((btn) => {
+          btn.addEventListener("click", () => removeFriend(btn.dataset.id));
+        });
+      }
+
+      async function loadMe() {
+        const data = await api("/api/auth/me");
+        const user = data.user;
+        meEl.innerHTML =
+          "Connecté en tant que <strong>" +
+          escapeHtml(user.username) +
+          "</strong> (ID #" +
+          user.id +
+          ")";
+      }
+
+      async function loadAll() {
+        globalErrorEl.textContent = "";
+        try {
+          const [friendsData, requestsData] = await Promise.all([
+            api("/api/friends"),
+            api("/api/friends/requests"),
+          ]);
+          renderFriends(friendsData.friends);
+          renderIncoming(requestsData.incoming);
+          renderOutgoing(requestsData.outgoing);
+        } catch (err) {
+          globalErrorEl.textContent =
+            err.message || "Impossible de contacter le serveur.";
+        }
+      }
+
+      async function respondToRequest(friendshipId, status) {
+        try {
+          await api("/api/friends/" + friendshipId, {
+            method: "PATCH",
+            body: JSON.stringify({ status }),
+          });
+          loadAll();
+        } catch (err) {
+          globalErrorEl.textContent = err.message || "Action impossible.";
+        }
+      }
+
+      async function cancelRequest(friendshipId) {
+        try {
+          await api("/api/friends/requests/" + friendshipId, {
+            method: "DELETE",
+          });
+          loadAll();
+        } catch (err) {
+          globalErrorEl.textContent = err.message || "Action impossible.";
+        }
+      }
+
+      async function removeFriend(userId) {
+        try {
+          await api("/api/friends/" + userId, { method: "DELETE" });
+          loadAll();
+        } catch (err) {
+          globalErrorEl.textContent = err.message || "Action impossible.";
+        }
+      }
+
+      function renderSearchResults(users) {
+        if (users.length === 0) {
+          searchResultsEl.textContent = "Aucun compte trouvé.";
+          return;
+        }
+
+        searchResultsEl.innerHTML = users
+          .map(
+            (u) =>
+              '<div style="border: 1px solid #ccc; padding: 8px; margin-bottom: 6px;">' +
+              userLabel(u) +
+              ' <button data-id="' +
+              u.id +
+              '" class="send-request-btn">Envoyer une demande</button>' +
+              "</div>",
+          )
+          .join("");
+
+        searchResultsEl.querySelectorAll(".send-request-btn").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            sendRequest(Number(btn.dataset.id)),
+          );
+        });
+      }
+
+      searchForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        addMessageEl.textContent = "";
+        const q = document.getElementById("username-query").value.trim();
+
+        try {
+          const data = await api(
+            "/api/users/search?q=" + encodeURIComponent(q),
+          );
+          renderSearchResults(data.users);
+        } catch (err) {
+          addMessageEl.style.color = "red";
+          addMessageEl.textContent = err.message || "Recherche impossible.";
+        }
+      });
+
+      async function sendRequest(targetUserId) {
+        addMessageEl.textContent = "";
+
+        try {
+          await api("/api/friends", {
+            method: "POST",
+            body: JSON.stringify({ targetUserId }),
+          });
+          addMessageEl.style.color = "green";
+          addMessageEl.textContent = "Demande envoyée.";
+          loadAll();
+        } catch (err) {
+          addMessageEl.style.color = "red";
+          addMessageEl.textContent =
+            err.message || "Impossible d'envoyer la demande.";
+        }
+      }
+
+      loadMe();
+      loadAll();
+    </script>
+  </body>
+</html>

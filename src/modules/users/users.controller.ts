@@ -12,6 +12,17 @@ export async function getUserProfile(req: Request, res: Response) {
     return res.json({ status: 'OK', user });
 }
 
+export async function searchUsers(req: Request, res: Response) {
+    const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+
+    if (query.length < 2) {
+        return res.status(400).json({ status: 'ERROR', errors: ['Recherche trop courte (2 caractères minimum).'] });
+    }
+
+    const users = await UsersService.search(query, req.userId as number);
+    return res.json({ status: 'OK', users });
+}
+
 export async function updateMyProfile(req: Request, res: Response) {
     const userId = req.userId;
 
