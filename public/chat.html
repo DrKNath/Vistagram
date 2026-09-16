@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <title>Messagerie — Vistagram</title>
+</head>
+<body>
+    <!-- Page temporaire : le design sera fait par un autre membre de l'équipe -->
+    <h1>Messagerie</h1>
+    <p><a href="/dashboard.html">← Retour au tableau de bord</a></p>
+
+    <div style="display: flex; gap: 30px;">
+        <div style="min-width: 220px;">
+            <h2>Conversations</h2>
+            <div id="conversations">Chargement...</div>
+
+            <h2>Démarrer avec un ami</h2>
+            <div id="friends">Chargement...</div>
+        </div>
+
+        <div style="flex: 1;">
+            <h2 id="thread-title">Sélectionnez une conversation</h2>
+            <div id="messages" style="border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto;"></div>
+
+            <form id="message-form" style="margin-top: 10px; display: none;">
+                <input type="text" id="message-input" placeholder="Votre message" style="width: 70%;" required maxlength="2000" />
+                <button type="submit">Envoyer</button>
+            </form>
+            <p id="form-message" style="color: red;"></p>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const conversationsEl = document.getElementById('conversations');
+        const friendsEl = document.getElementById('friends');
+        const threadTitleEl = document.getElementById('thread-title');
+        const messagesEl = document.getElementById('messages');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const formMessage = document.getElementById('form-message');
+
+        let currentConversationId = null;
+        let socket = null;
+        const renderedMessageIds = new Set();
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function renderMessage(message) {
+            if (renderedMessageIds.has(message.id)) {
+                return;
+            }
+            renderedMessageIds.add(message.id);
+
+            const time = new Date(message.createdAt).toLocaleString('fr-FR');
+            const p = document.createElement('p');
+            p.innerHTML =
+                '<strong>' + escapeHtml(message.sender.username) + '</strong> ' +
+                '<small>(' + time + ')</small> : ' + escapeHtml(message.content);
+            messagesEl.appendChild(p);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        async function loadConversations() {
+            const response = await fetch('/api/chat/conversations', { credentials: 'include' });
+
+            if (response.status === 401) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            const data = await response.json();
+
+            if (!data.conversations || data.conversations.length === 0) {
+                conversationsEl.textContent = 'Aucune conversation pour le moment.';
+                return;
+            }
+
+            conversationsEl.innerHTML = '';
+            data.conversations.forEach((conversation) => {
+                const other = conversation.participants[0];
+                const label = other ? other.username : (conversation.title || 'Conversation');
+                const preview = conversation.lastMessage ? escapeHtml(conversation.lastMessage.content) : '(aucun message)';
+
+                const btn = document.createElement('button');
+                btn.style.display = 'block';
+                btn.style.marginBottom = '5px';
+                btn.innerHTML = '<strong>' + escapeHtml(label) + '</strong><br><small>' + preview + '</small>';
+                btn.addEventListener('click', () => openConversation(conversation.id, label));
+                conversationsEl.appendChild(btn);
+            });
+        }
+
+        async function loadFriends() {
+            const response = await fetch('/api/friends', { credentials: 'include' });
+            const data = await response.json();
+
+            if (!data.friends || data.friends.length === 0) {
+                friendsEl.textContent = "Vous n'avez pas encore d'amis. Ajoutez-en depuis la page dédiée.";
+                return;
+            }
+
+            friendsEl.innerHTML = '';
+            data.friends.forEach((friend) => {
+                const btn = document.createElement('button');
+                btn.textContent = 'Discuter avec ' + friend.username;
+                btn.style.display = 'block';
+                btn.style.marginBottom = '5px';
+                btn.addEventListener('click', async () => {
+                    const res = await fetch('/api/chat/conversations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ targetUserId: friend.id }),
+                    });
+                    const body = await res.json();
+
+                    if (!res.ok) {
+                        formMessage.textContent = (body.errors || ['Impossible de démarrer la conversation.']).join(' ');
+                        return;
+                    }
+
+                    await loadConversations();
+                    openConversation(body.conversation.id, friend.username);
+                });
+                friendsEl.appendChild(btn);
+            });
+        }
+
+        async function openConversation(conversationId, label) {
+            currentConversationId = conversationId;
+            threadTitleEl.textContent = label;
+            messagesEl.innerHTML = '';
+            renderedMessageIds.clear();
+            messageForm.style.display = 'block';
+            formMessage.textContent = '';
+
+            const response = await fetch('/api/chat/conversations/' + conversationId + '/messages', {
+                credentials: 'include',
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                messagesEl.textContent = (data.errors || ['Erreur inconnue.']).join(' ');
+                return;
+            }
+
+            data.messages.forEach(renderMessage);
+
+            if (socket) {
+                socket.emit('join_conversation', conversationId);
+            }
+        }
+
+        messageForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!currentConversationId) {
+                return;
+            }
+
+            const content = messageInput.value;
+            formMessage.textContent = '';
+
+            const response = await fetch('/api/chat/conversations/' + currentConversationId + '/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ content }),
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                formMessage.textContent = (data.errors || ['Erreur inconnue.']).join(' ');
+                return;
+            }
+
+            renderMessage(data.message);
+            messageInput.value = '';
+            loadConversations();
+        });
+
+        // Connexion temps réel : le cookie de session est transmis automatiquement,
+        // l'authentification est vérifiée côté serveur (voir chat.socket.ts).
+        function connectSocket() {
+            socket = io({ withCredentials: true });
+
+            socket.on('new_message', (message) => {
+                if (message.conversationId === currentConversationId) {
+                    renderMessage(message);
+                }
+                loadConversations();
+            });
+        }
+
+        loadConversations();
+        loadFriends();
+        connectSocket();
+    </script>
+</body>
+</html>
