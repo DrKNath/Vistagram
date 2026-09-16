@@ -356,9 +356,14 @@ describe('gestion des membres d\'un groupe', () => {
     });
 
     it('refuse d\'ajouter un compte qui n\'est pas ami de celui qui ajoute', async () => {
-        const conversationId = await createTestGroup();
-        // dave n'est pas ami avec alice.
+        // Groupe monté à la main : alice n'est amie qu'avec bob et carol, pas avec dave.
+        await makeFriends(aliceId, bobId);
+        await makeFriends(aliceId, carolId);
         const aliceAgent = await loginAs(alice);
+        const created = await aliceAgent
+            .post('/api/chat/conversations/group')
+            .send({ title: 'Groupe sans dave', participantIds: [bobId, carolId] });
+        const conversationId = created.body.conversation.id;
 
         const response = await aliceAgent
             .post(`/api/chat/conversations/${conversationId}/participants`)
