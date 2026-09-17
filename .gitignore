@@ -3,3 +3,8 @@ node_modules/
 prisma/dev.db
 public/uploads
 *.DS_Store
+.env.*
+!.env.example
+prisma/*.db*
+dist/
+.test-db/

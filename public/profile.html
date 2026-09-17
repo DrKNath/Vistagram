@@ -1,0 +1,15 @@
+<!doctype html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Profil — Vistagram</title><link rel="stylesheet" href="/assets/css/moderation.css"></head><body class="mod-page"><header class="mod-header"><a class="mod-brand" href="/dashboard.html">Vistagram</a><a href="/feed.html">Fil d’actualité</a></header><main><article class="mod-card"><h1 id="username">Profil</h1><p id="message" role="status">Chargement…</p><button id="report-user" hidden data-report-type="USER">Signaler cet utilisateur</button></article></main><script src="/assets/js/common.js"></script><script src="/assets/js/reporting.js"></script><script>
+(async () => {
+    const id = new URLSearchParams(location.search).get('id');
+    const message = document.getElementById('message');
+    if (!/^\d+$/.test(id || '') || Number(id) <= 0) { message.textContent = 'Identifiant invalide.'; return; }
+    try {
+        const { user } = await Vistagram.api('/api/users/' + id);
+        const { user: me } = await Vistagram.api('/api/auth/me');
+        document.getElementById('username').textContent = user.username;
+        message.textContent = 'Membre depuis le ' + new Date(user.createdAt).toLocaleDateString('fr-FR');
+        const button = document.getElementById('report-user');
+        button.dataset.reportId = user.id; button.hidden = user.id === me.id;
+    } catch (error) { message.textContent = error.message; }
+})();
+</script></body></html>

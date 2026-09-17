@@ -16,7 +16,12 @@ export class UsersService {
     static async updateProfile(id: number, data: { username?: string; bio?: string; avatar?: string }) {
         return prisma.user.update({
             where: { id },
-            data,
+            // Never pass req.body directly: role/isBanned/authVersion are privileged fields.
+            data: {
+                ...(typeof data.username === 'string' ? { username: data.username.trim() } : {}),
+                ...(typeof data.bio === 'string' ? { bio: data.bio } : {}),
+                ...(typeof data.avatar === 'string' ? { avatar: data.avatar } : {}),
+            },
             select: {
                 id: true,
                 username: true,

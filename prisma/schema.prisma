@@ -1,6 +1,6 @@
 datasource db {
     provider = "sqlite"
-    url      = "file:./dev.db"
+    url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -14,8 +14,14 @@ model User {
     password  String
     avatar    String?
     bio       String?
-    role      String   @default("USER") // "USER", "ADMIN", "SUPER_ADMIN"
+    role      String   @default("USER") // USER, MODERATOR, ADMIN, SUPER_ADMIN
     createdAt DateTime @default(now())
+
+    isBanned Boolean @default(false)
+    bannedAt DateTime?
+    banReason String?
+    authVersion Int @default(0)
+    reportsReceived Report[] @relation("ReportedUser")
 
     // Relations sociales
     posts    Post[]
@@ -106,6 +112,7 @@ model Like {
 }
 
 model Comment {
+    reports Report[]
     id        Int      @id @default(autoincrement())
     content   String
     userId    Int
@@ -117,13 +124,46 @@ model Comment {
 }
 
 model Report {
-    id        Int      @id @default(autoincrement())
-    reason    String
-    status    String   @default("PENDING") // PENDING, RESOLVED
-    userId    Int
-    postId    Int?
+    id Int @id @default(autoincrement())
+    reason String
+    status String @default("PENDING") // PENDING, RESOLVED, DISMISSED
+    userId Int
+    postId Int?
+    commentId Int?
+    targetUserId Int?
+    // Stable identifiers and evidence survive content deletion.
+    targetType String @default("POST")
+    targetId Int?
+    targetAuthorId Int?
+    targetSnapshot String @default("")
+    // One pending report per reporter/target, enforced by the database.
+    openKey String? @unique
+    createdAt DateTime @default(now())
+    resolvedAt DateTime?
+    resolvedBy Int?
+    resolutionNote String?
+
+    reporter User @relation("Reporter", fields: [userId], references: [id], onDelete: Cascade)
+    post Post? @relation(fields: [postId], references: [id], onDelete: SetNull)
+    comment Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+    targetUser User? @relation("ReportedUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+    @@index([status, createdAt])
+}
+
+// Append-only through the API. Scalar snapshots deliberately have no cascading FK.
+model ModerationLog {
+    id Int @id @default(autoincrement())
+    actorId Int
+    actorName String
+    action String
+    targetType String
+    targetId Int
+    targetSnapshot String
+    reason String
+    reportId Int?
     createdAt DateTime @default(now())
 
-    reporter User  @relation("Reporter", fields: [userId], references: [id], onDelete: Cascade)
-    post     Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+    @@index([createdAt])
+    @@index([reportId])
 }

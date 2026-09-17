@@ -73,6 +73,7 @@ export class PostsService {
 
         const posts = await prisma.post.findMany({
             where: {
+                isHidden: false,
                 OR: [
                     { visibility: 'PUBLIC' },
                     { userId: viewerId },
@@ -93,7 +94,7 @@ export class PostsService {
             include: { user: { select: AUTHOR_SELECT } },
         });
 
-        if (!post) {
+        if (!post || post.isHidden) {
             throw new PostsError('Post introuvable.', 404);
         }
 

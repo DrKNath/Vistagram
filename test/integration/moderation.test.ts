@@ -104,19 +104,19 @@ describe('Vérification des droits administrateur', () => {
 
     it('refuse à un utilisateur normal de résoudre un signalement (403)', async () => {
         const agent = await loginAs(normalUser);
-        const response = await agent.patch('/api/moderation/reports/1/resolve');
+        const response = await agent.patch('/api/moderation/reports/1/resolve').send({ reason: 'Décision de modération pour le test' });
         expect(response.status).toBe(403);
     });
 
     it('refuse à un utilisateur normal de masquer un post (403)', async () => {
         const agent = await loginAs(normalUser);
-        const response = await agent.patch(`/api/moderation/posts/${postId}/hide`);
+        const response = await agent.patch(`/api/moderation/posts/${postId}/hide`).send({ reason: 'Décision de modération pour le test' });
         expect(response.status).toBe(403);
     });
 
     it('refuse à un utilisateur normal de supprimer un post (403)', async () => {
         const agent = await loginAs(normalUser);
-        const response = await agent.delete(`/api/moderation/posts/${postId}`);
+        const response = await agent.delete(`/api/moderation/posts/${postId}`).send({ reason: 'Décision de modération pour le test' });
         expect(response.status).toBe(403);
     });
 
@@ -137,7 +137,7 @@ describe('Vérification des droits administrateur', () => {
 describe('Masquage / suppression de contenu (admin)', () => {
     it('permet à un administrateur de masquer un post', async () => {
         const agent = await loginAs(adminUser);
-        const response = await agent.patch(`/api/moderation/posts/${postId}/hide`);
+        const response = await agent.patch(`/api/moderation/posts/${postId}/hide`).send({ reason: 'Décision de modération pour le test' });
 
         expect(response.status).toBe(200);
         expect(response.body.post.isHidden).toBe(true);
@@ -145,7 +145,7 @@ describe('Masquage / suppression de contenu (admin)', () => {
 
     it('permet à un administrateur de réafficher un post masqué', async () => {
         const agent = await loginAs(adminUser);
-        const response = await agent.patch(`/api/moderation/posts/${postId}/unhide`);
+        const response = await agent.patch(`/api/moderation/posts/${postId}/unhide`).send({ reason: 'Décision de modération pour le test' });
 
         expect(response.status).toBe(200);
         expect(response.body.post.isHidden).toBe(false);
@@ -156,14 +156,14 @@ describe('Masquage / suppression de contenu (admin)', () => {
         const list = await agent.get('/api/moderation/reports?status=pending');
         const reportId = list.body.reports[0].id;
 
-        const response = await agent.patch(`/api/moderation/reports/${reportId}/resolve`);
+        const response = await agent.patch(`/api/moderation/reports/${reportId}/resolve`).send({ reason: 'Décision de modération pour le test' });
         expect(response.status).toBe(200);
         expect(response.body.report.status).toBe('resolved');
     });
 
     it('permet à un administrateur de supprimer définitivement un post', async () => {
         const agent = await loginAs(adminUser);
-        const response = await agent.delete(`/api/moderation/posts/${postId}`);
+        const response = await agent.delete(`/api/moderation/posts/${postId}`).send({ reason: 'Décision de modération pour le test' });
 
         expect(response.status).toBe(200);
 
@@ -173,7 +173,7 @@ describe('Masquage / suppression de contenu (admin)', () => {
 
     it('renvoie 404 si on essaie de masquer un post déjà supprimé', async () => {
         const agent = await loginAs(adminUser);
-        const response = await agent.patch(`/api/moderation/posts/${postId}/hide`);
+        const response = await agent.patch(`/api/moderation/posts/${postId}/hide`).send({ reason: 'Décision de modération pour le test' });
         expect(response.status).toBe(404);
     });
 });

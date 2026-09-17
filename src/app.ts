@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import { commentsRouter } from './modules/comments/comments.routes.js';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { authRouter } from './modules/auth/auth.routes.js';
@@ -12,8 +13,6 @@ import { postsRouter } from './modules/posts/posts.routes.js';
 import { friendsRouter } from './modules/friends/friends.routes.js';
 
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export const app = express();
 
@@ -21,7 +20,7 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(process.cwd(), 'public')));
 
 // Route de test
 app.get('/health', (req, res) => {
@@ -35,3 +34,11 @@ app.use('/api/media', mediaRouter);
 app.use('/api/posts', postsRouter);
 app.use('/api/friends', friendsRouter);
 
+
+app.use('/api/posts/:postId/comments', commentsRouter);
+
+app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (error instanceof SyntaxError) return res.status(400).json({ status: 'ERROR', errors: ['JSON invalide.'] });
+    console.error(error);
+    res.status(500).json({ status: 'ERROR', errors: ['Erreur serveur.'] });
+});

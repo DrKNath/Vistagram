@@ -16,8 +16,8 @@ export class AuthError extends Error {
     }
 }
 
-export function signToken(userId: number) {
-    const payload: JwtPayload = { userId };
+export function signToken(userId: number, authVersion = 0) {
+    const payload: JwtPayload = { userId, authVersion };
     return jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRES_IN });
 }
 
@@ -59,6 +59,7 @@ export async function loginUser(email: string, password: string): Promise<User> 
         throw new AuthError('Email ou mot de passe incorrect.', 401);
     }
 
+    if (user.isBanned) throw new AuthError('Ce compte est banni.', 403);
     return user;
 }
 

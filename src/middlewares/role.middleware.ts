@@ -12,12 +12,13 @@ declare global {
 
 const ROLE_RANK: Record<Role, number> = {
     USER: 0,
-    ADMIN: 1,
-    SUPER_ADMIN: 2,
+    MODERATOR: 1,
+    ADMIN: 2,
+    SUPER_ADMIN: 3,
 };
 
 function toRole(value: string): Role {
-    return value === 'ADMIN' || value === 'SUPER_ADMIN' ? value : 'USER';
+    return value === 'MODERATOR' || value === 'ADMIN' || value === 'SUPER_ADMIN' ? value : 'USER';
 }
 
 /**
