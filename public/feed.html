@@ -2,9 +2,9 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8" />
-    <title>Fil d'actualité — Vistagram</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/css/moderation.css"><title>Fil d'actualité — Vistagram</title>
 </head>
-<body>
+<body class="mod-page"><main>
     <!-- Page temporaire : le design sera fait par un autre membre de l'équipe -->
     <h1>Fil d'actualité</h1>
     <p><a href="/dashboard.html">← Retour au tableau de bord</a></p>
@@ -42,12 +42,15 @@
     <h2>Posts</h2>
     <div id="posts">Chargement...</div>
 
+    <script src="/assets/js/common.js"></script>
+    <script src="/assets/js/reporting.js"></script>
     <script>
         const form = document.getElementById('post-form');
         const formMessage = document.getElementById('form-message');
         const submitBtn = document.getElementById('submit-btn');
         const postsEl = document.getElementById('posts');
 
+        let viewerId;
         const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.mkv'];
 
         function escapeHtml(str) {
@@ -64,8 +67,8 @@
             const date = new Date(post.createdAt).toLocaleString('fr-FR');
             const badge = post.visibility === 'FRIENDS' ? '👥 Amis' : '🌍 Public';
 
-            let html = '<div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">';
-            html += '<strong>' + escapeHtml(post.author.username) + '</strong>';
+            let html = '<article class="mod-card">';
+            html += '<a href="/profile.html?id=' + post.author.id + '"><strong>' + escapeHtml(post.author.username) + '</strong></a>';
             html += ' <span>(' + badge + ')</span>';
             html += ' — <small>' + date + '</small>';
             html += '<p>' + escapeHtml(post.content) + '</p>';
@@ -73,20 +76,23 @@
             if (post.mediaUrl) {
                 if (isVideoUrl(post.mediaUrl)) {
                     html +=
-                        '<video src="' + post.mediaUrl + '" controls style="max-width: 300px; display:block;"></video>';
+                        '<video src="' + escapeHtml(post.mediaUrl).replaceAll('"', '&quot;') + '" controls style="max-width: 300px; display:block;"></video>';
                 } else {
-                    html += '<img src="' + post.mediaUrl + '" alt="media" style="max-width: 300px; display:block;" />';
+                    html += '<img src="' + escapeHtml(post.mediaUrl).replaceAll('"', '&quot;') + '" alt="media" style="max-width: 300px; display:block;" />';
                 }
             }
 
-            html += '<button data-id="' + post.id + '" class="delete-btn">Supprimer</button>';
-            html += '</div>';
+            html += '<div class="mod-actions"><button data-report-type="POST" data-report-id="' + post.id + '">Signaler la publication</button>';
+            html += '<button data-report-type="USER" data-report-id="' + post.author.id + '">Signaler cet utilisateur</button>';
+            if (post.author.id === viewerId) html += '<button data-id="' + post.id + '" class="delete-btn">Supprimer</button>';
+            html += '</div><details class="mod-comments"><summary data-comments="' + post.id + '">Commentaires</summary><div id="comments-' + post.id + '"></div><form data-comment-form="' + post.id + '"><label>Ajouter un commentaire<textarea name="content" required maxlength="2000" rows="2"></textarea></label><button type="submit">Commenter</button><p role="status"></p></form></details></article>';
 
             return html;
         }
 
         async function loadFeed() {
             try {
+                if (!viewerId) viewerId = (await Vistagram.api('/api/auth/me')).user.id;
                 const response = await fetch('/api/posts', { credentials: 'include' });
 
                 if (response.status === 401) {
@@ -110,11 +116,11 @@
 
                 document.querySelectorAll('.delete-btn').forEach((btn) => {
                     btn.addEventListener('click', async () => {
-                        await fetch('/api/posts/' + btn.dataset.id, {
-                            method: 'DELETE',
-                            credentials: 'include',
-                        });
-                        loadFeed();
+                        if (!confirm('Supprimer ta publication ?')) return;
+                        try {
+                            await Vistagram.api('/api/posts/' + btn.dataset.id, { method: 'DELETE' });
+                            await loadFeed();
+                        } catch (error) { formMessage.textContent = error.message; }
                     });
                 });
             } catch (err) {
@@ -191,7 +197,45 @@
             }
         });
 
+        postsEl.addEventListener('click', event => {
+            const summary = event.target.closest('[data-comments]');
+            if (summary) loadComments(summary.dataset.comments);
+        });
+        async function loadComments(postId) {
+            const box = document.getElementById('comments-' + postId);
+            try {
+                const data = await Vistagram.api('/api/posts/' + postId + '/comments');
+                box.replaceChildren();
+                if (!data.comments.length) box.textContent = 'Aucun commentaire.';
+                for (const comment of data.comments) {
+                    const row = document.createElement('div');
+                    const text = document.createElement('p');
+                    text.textContent = comment.user.username + ' : ' + comment.content;
+                    const report = document.createElement('button');
+                    report.type = 'button'; report.textContent = 'Signaler le commentaire';
+                    report.dataset.reportType = 'COMMENT'; report.dataset.reportId = comment.id;
+                    row.append(text, report); box.append(row);
+                }
+            } catch (error) { box.textContent = error.message; }
+        }
+        postsEl.addEventListener('submit', async event => {
+            const commentForm = event.target.closest('[data-comment-form]');
+            if (!commentForm) return;
+            event.preventDefault();
+            const button = commentForm.querySelector('button');
+            if (button.disabled) return;
+            button.disabled = true;
+            const feedback = commentForm.querySelector('[role="status"]');
+            try {
+                await Vistagram.api('/api/posts/' + commentForm.dataset.commentForm + '/comments', {
+                    method: 'POST', body: JSON.stringify({ content: commentForm.elements.content.value }),
+                });
+                commentForm.reset(); feedback.textContent = 'Commentaire ajouté.';
+                await loadComments(commentForm.dataset.commentForm);
+            } catch (error) { feedback.textContent = error.message; }
+            finally { button.disabled = false; }
+        });
         loadFeed();
     </script>
-</body>
+</main></body>
 </html>

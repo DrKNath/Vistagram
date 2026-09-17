@@ -33,7 +33,7 @@ export async function register(req: Request, res: Response) {
 
     try {
         const user = await registerUser(email.trim().toLowerCase(), username.trim(), password);
-        const token = signToken(user.id);
+        const token = signToken(user.id, user.authVersion);
         setAuthCookie(res, token);
         return res.status(201).json({ status: 'OK', user: toPublicUser(user) });
     } catch (err) {
@@ -56,7 +56,7 @@ export async function login(req: Request, res: Response) {
 
     try {
         const user = await loginUser(email.trim().toLowerCase(), password);
-        const token = signToken(user.id);
+        const token = signToken(user.id, user.authVersion);
         setAuthCookie(res, token);
         return res.json({ status: 'OK', user: toPublicUser(user) });
     } catch (err) {

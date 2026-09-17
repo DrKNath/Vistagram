@@ -2,6 +2,7 @@ import type { User } from '@prisma/client';
 
 export interface JwtPayload {
     userId: number;
+    authVersion?: number;
 }
 
 export type PublicUser = Omit<User, 'password'>;
